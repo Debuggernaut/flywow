@@ -194,25 +194,47 @@ def main() -> None:
         print(f"  port {name:8} {int(m.sum()):6}")
 
     is_in, is_out, in_name, out_name = choose_io(nodes, p, EXPERIMENT)
-    print(f"\nexperiment={EXPERIMENT}")
-    print(f"drive {in_name}  n={int(is_in.sum())}")
-    print(f"read  {out_name}  n={int(is_out.sum())}")
-    if is_in.sum() == 0 or is_out.sum() == 0:
-        raise SystemExit("empty input or output port — check type/superclass strings")
 
-    x = drive_rate(W, is_in, RATE_DRIVE, RATE_STEPS)
-    print(f"\nlinear-rate readout ({RATE_STEPS} steps, drive={RATE_DRIVE})")
-    print(top_hits(nodes, x, is_out).to_string(index=False))
+    # after W and is_in exist
+    x0 = np.zeros(W.shape[0], dtype=np.float32)
+    x0[is_in] = 1.0 #Set only the two Giant Fiber cells to 1
+    current = W @ x0          # signed synapse-count onto each cell
 
-    # also show where the signal went, regardless of the chosen output port
-    hidden = top_hits(nodes, x, np.ones(len(nodes), dtype=bool), k=15)
-    print("\ntop 15 cells anywhere")
-    print(hidden.to_string(index=False))
+    hit = nodes.assign(current=current)
+    typed = hit["type"].notna()
+    mn = hit.superclass.isin(["vnc_motor", "cb_motor"])
 
-    if RUN_LIF:
-        hz = drive_lif(W, is_in)
-        print(f"\nLIF readout ({LIF_MS} ms, input {LIF_HZ} Hz, gain={LIF_GAIN})")
-        print(top_hits(nodes, hz, is_out).to_string(index=False))
+    print(hit.loc[typed & (hit.current != 0)]
+            .sort_values("current", key=np.abs, ascending=False)
+            [["body", "type", "instance", "superclass", "subclass", "current"]]
+            .head(25)
+            .to_string(index=False))
+
+    print("\nmotor only")
+    print(hit.loc[mn & typed]
+            .sort_values("current", key=np.abs, ascending=False)
+            [["body", "type", "subclass", "exitNerve", "current"]]
+            .head(20)
+            .to_string(index=False))
+    # print(f"\nexperiment={EXPERIMENT}")
+    # print(f"drive {in_name}  n={int(is_in.sum())}")
+    # print(f"read  {out_name}  n={int(is_out.sum())}")
+    # if is_in.sum() == 0 or is_out.sum() == 0:
+    #     raise SystemExit("empty input or output port — check type/superclass strings")
+
+    # x = drive_rate(W, is_in, RATE_DRIVE, RATE_STEPS)
+    # print(f"\nlinear-rate readout ({RATE_STEPS} steps, drive={RATE_DRIVE})")
+    # print(top_hits(nodes, x, is_out).to_string(index=False))
+
+    # # also show where the signal went, regardless of the chosen output port
+    # hidden = top_hits(nodes, x, np.ones(len(nodes), dtype=bool), k=15)
+    # print("\ntop 15 cells anywhere")
+    # print(hidden.to_string(index=False))
+
+    # if RUN_LIF:
+    #     hz = drive_lif(W, is_in)
+    #     print(f"\nLIF readout ({LIF_MS} ms, input {LIF_HZ} Hz, gain={LIF_GAIN})")
+    #     print(top_hits(nodes, hz, is_out).to_string(index=False))
 
 
 if __name__ == "__main__":
