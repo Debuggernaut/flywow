@@ -27,7 +27,7 @@ PRINT_EVERY = TICK_HZ  # one status line per simulated second
 MAX_SECONDS = 30       # None = run until Ctrl+C
 
 # GRN drive: each selected cell spikes independently at ~1 Hz
-GRN_HZ = 90.0
+GRN_HZ = 91.0
 
 # Shiu 2024 / minecraft-style LIF
 TAU_M = 0.020
@@ -115,6 +115,45 @@ def sugar_water_mask(nodes: pd.DataFrame) -> np.ndarray:
     return gust.to_numpy()
 
 
+def print_top_motor(
+    nodes: pd.DataFrame,
+    mn_i: np.ndarray,
+    mn_spikes_win: np.ndarray,
+    mn_g_abs_sum: np.ndarray,
+    v: np.ndarray,
+    window_ticks: int,
+    k: int = 10,
+) -> None:
+    """Top motor neurons in this 1 s window: spikes first, then |synaptic current|."""
+    if len(mn_i) == 0:
+        print("         motor    none annotated")
+        return
+    spikes = mn_spikes_win[mn_i]
+    g_mean = mn_g_abs_sum[mn_i] / window_ticks
+    # substantial: spiked, or mean |g| above a quiet ripple
+    order = np.lexsort((-g_mean, -spikes))
+    take = order[:k]
+    rows = []
+    for j in take:
+        i = int(mn_i[j])
+        rows.append(
+            {
+                "spikes/s": int(spikes[j]),
+                "Hz": spikes[j] / 1.0,
+                "|g|mV": round(float(g_mean[j]), 4),
+                "V": round(float(v[i]), 2),
+                "type": nodes.at[i, "type"],
+                "subclass": nodes.at[i, "subclass"],
+                "exitNerve": nodes.at[i, "exitNerve"],
+                "body": int(nodes.at[i, "body"]),
+            }
+        )
+    n_spiking = int((spikes > 0).sum())
+    n_driven = int((g_mean > 0.01).sum())
+    print(f"         motor    spiking={n_spiking}/{len(mn_i)}  |g|>0.01mV={n_driven}")
+    print(pd.DataFrame(rows).to_string(index=False))
+
+
 def main() -> None:
     print(f"loading from {DATA_DIR}")
     nodes = load_cells(DATA_DIR)
@@ -132,7 +171,9 @@ def main() -> None:
 
     mn9_i = np.flatnonzero(nodes["type"].astype(str).eq("MN9"))
     dand_i = np.flatnonzero(nodes["type"].astype(str).eq("AN13B002"))
-    print(f"readout  MN9={len(mn9_i)}  Dandelion/AN13B002={len(dand_i)}")
+    is_mn = nodes.superclass.isin(["vnc_motor", "cb_motor"]).to_numpy()
+    mn_i = np.flatnonzero(is_mn)
+    print(f"readout  MN9={len(mn9_i)}  Dandelion/AN13B002={len(dand_i)}  motor={len(mn_i)}")
 
     rng = np.random.default_rng(0)
     v = np.full(n, VREST, dtype=np.float32)
@@ -152,6 +193,12 @@ def main() -> None:
     net_spikes_win = 0
     mn9_spikes_win = 0
     dand_spikes_win = 0
+    mn_spikes_win = np.zeros(n, dtype=np.int32)
+    mn_g_abs_sum = np.zeros(n, dtype=np.float64)
+    v_sum = 0.0
+    g_abs_sum = 0.0
+    g_max = 0.0
+    near_th_sum = 0
 
     try:
         while n_ticks is None or tick < n_ticks:
@@ -183,6 +230,9 @@ def main() -> None:
                 mn9_spikes_win += int(fired[mn9_i].sum())
             if len(dand_i):
                 dand_spikes_win += int(fired[dand_i].sum())
+            if len(mn_i):
+                mn_spikes_win[mn_i] += fired[mn_i].astype(np.int32)
+                mn_g_abs_sum[mn_i] += np.abs(g[mn_i])
 
             # GRNs that fired this tick are sources even if they missed VTH
             # (they are clamped sensory spikes, like optogenetic drive)
@@ -190,23 +240,47 @@ def main() -> None:
             if grn_fire.any():
                 spikes[grn_i[grn_fire]] = 1.0
 
+            v_sum += float(v.mean())
+            g_abs_sum += float(np.abs(g).mean())
+            g_max = max(g_max, float(np.abs(g).max()))
+            near_th_sum += int((v > (VTH - 2.0)).sum())
+
             tick += 1
             if tick % PRINT_EVERY == 0:
                 wall = time.perf_counter() - t0
                 bio = tick * DT
+                n_grn = max(len(grn_i), 1)
+                grn_each = grn_spikes_win / n_grn
+                net_hz = net_spikes_win / n
+                v_mean = v_sum / PRINT_EVERY
+                g_mean = g_abs_sum / PRINT_EVERY
+                near_pct = 100.0 * (near_th_sum / PRINT_EVERY) / n
                 top = ""
-                if fired.any():
-                    names = pd.Series(types[fired]).value_counts().head(8)
+                if net_spikes_win:
+                    names = pd.Series(types[fired]).value_counts().head(6)
                     top = "  " + ", ".join(f"{k}:{v}" for k, v in names.items())
                 print(
                     f"t={bio:6.1f}s  wall={wall:5.1f}s  "
-                    f"GRN {grn_spikes_win:4d}/s  "
-                    f"net {net_spikes_win:6d}/s  "
-                    f"Dandelion {dand_spikes_win:3d}/s  "
-                    f"MN9 {mn9_spikes_win:3d}/s"
+                    f"GRN {grn_spikes_win:4d}/s "
+                    f"({grn_each:.2f} Hz/cell, n={len(grn_i)})  "
+                    f"net {net_spikes_win:6d}/s ({net_hz*1000:.3f} mHz/cell)  "
+                    f"Dandelion {dand_spikes_win:3d}/s  MN9 {mn9_spikes_win:3d}/s"
+                )
+                print(
+                    f"         activity  Vmean={v_mean:7.2f} mV  "
+                    f"|g|mean={g_mean:.4f} mV  |g|max={g_max:.2f} mV  "
+                    f"near_th={near_pct:.4f}%  "
+                    f"{'QUIET' if net_spikes_win == 0 else 'SPIKING'}"
                     f"{top}"
                 )
+                print_top_motor(
+                    nodes, mn_i, mn_spikes_win, mn_g_abs_sum, v, PRINT_EVERY
+                )
                 grn_spikes_win = net_spikes_win = mn9_spikes_win = dand_spikes_win = 0
+                mn_spikes_win[:] = 0
+                mn_g_abs_sum[:] = 0
+                v_sum = g_abs_sum = g_max = 0.0
+                near_th_sum = 0
     except KeyboardInterrupt:
         print("\nstopped")
 
