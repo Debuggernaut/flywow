@@ -131,7 +131,7 @@ class Viewer:
             if SHOW_FLY_EYE:
                 small = fit(im, 480)
                 arr = np.asarray(small)
-                if self._hex is None or self._hex[1] != small.size:
+                if self._hex is None or self._hex[-1] != small.size:
                     cells, px, py, size = build_hex_lookup(small.width, small.height, HEX_RINGS)
                     self._hex = (cells, px, py, size, small.size)
                 _, px, py, size, _ = self._hex
