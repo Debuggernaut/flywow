@@ -22,8 +22,8 @@ MIN_WEIGHT = 5
 
 # Outer loop stays 100 Hz. Each tick runs INNER 1 ms LIF steps.
 TICK_HZ = 100
-INNER_DT = 0.001
-INNER_STEPS = 10
+INNER_STEPS = 2
+INNER_DT = 0.01/INNER_STEPS
 DT = INNER_DT
 PRINT_EVERY = TICK_HZ  # one status line per simulated second
 MAX_SECONDS = 30       # None = run until Ctrl+C
@@ -39,7 +39,7 @@ VTH = -45.0
 VRESET = -52.0
 TREF = 0.0022
 WSYN = 0.275          # mV per signed synapse count
-GAIN = 0.65           # minecraft extra scale; turn down if the net explodes
+GAIN = 0.2           # minecraft extra scale; turn down if the net explodes
 
 FAST_NT = {
     "acetylcholine": 1,
