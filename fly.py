@@ -20,13 +20,15 @@ from scipy import sparse
 DATA_DIR = Path(r"C:\Dev\flywow\data")
 MIN_WEIGHT = 5
 
-# Loop: 100 Hz biological time (10 ms per tick)
+# Outer loop stays 100 Hz. Each tick runs INNER 1 ms LIF steps.
 TICK_HZ = 100
-DT = 1.0 / TICK_HZ
+INNER_DT = 0.001
+INNER_STEPS = 10
+DT = INNER_DT
 PRINT_EVERY = TICK_HZ  # one status line per simulated second
 MAX_SECONDS = 30       # None = run until Ctrl+C
 
-# GRN drive: each selected cell spikes independently at ~1 Hz
+# GRN drive (you were on ~91 Hz)
 GRN_HZ = 91.0
 
 # Shiu 2024 / minecraft-style LIF
@@ -160,9 +162,22 @@ def main() -> None:
     edges = load_edges(DATA_DIR, set(nodes["body"].astype(int)))
     print(f"neurons {len(nodes):,}  edges>={MIN_WEIGHT} {len(edges):,}")
 
-    W = build_W(nodes, edges)
+    W = build_W(nodes, edges).tocsc()
     n = W.shape[0]
-    print(f"W shape {W.shape}  nnz {W.nnz:,}")
+    indptr = W.indptr
+    indices = W.indices
+    data = W.data
+    print(f"W shape {W.shape}  nnz {W.nnz:,}  (CSC spike gather)")
+
+    def dump_spikes(g: np.ndarray, fired_idx: np.ndarray) -> None:
+        """Add signed PSCs only from cells that spiked. Cost ~ spikes × out-degree."""
+        scale = np.float32(WSYN * GAIN)
+        for i in fired_idx:
+            a = int(indptr[i])
+            b = int(indptr[i + 1])
+            if a == b:
+                continue
+            g[indices[a:b]] += scale * data[a:b]
 
     is_grn = sugar_water_mask(nodes)
     grn_i = np.flatnonzero(is_grn)
@@ -177,14 +192,19 @@ def main() -> None:
 
     rng = np.random.default_rng(0)
     v = np.full(n, VREST, dtype=np.float32)
-    g = np.zeros(n, dtype=np.float32)       # synaptic current, tau_s
+    g = np.zeros(n, dtype=np.float32)
     refr = np.zeros(n, dtype=np.float32)
-    spikes = np.zeros(n, dtype=np.float32)
+    pending = np.empty(0, dtype=np.int32)  # who spiked last inner step
 
     types = nodes["type"].astype(str).to_numpy()
-    p_grn = GRN_HZ * DT
+    p_grn = GRN_HZ * INNER_DT
+    leak = np.float32(np.exp(-INNER_DT / TAU_S))
+    inner_per_sec = PRINT_EVERY * INNER_STEPS
 
-    print(f"\nrunning {TICK_HZ} Hz LIF  dt={DT*1000:.1f} ms  Ctrl+C to stop")
+    print(
+        f"\nrunning {TICK_HZ} Hz outer / {INNER_STEPS}×{INNER_DT*1000:.0f} ms LIF  "
+        f"Ctrl+C to stop"
+    )
     t0 = time.perf_counter()
     tick = 0
     n_ticks = None if MAX_SECONDS is None else int(MAX_SECONDS * TICK_HZ)
@@ -202,44 +222,44 @@ def main() -> None:
 
     try:
         while n_ticks is None or tick < n_ticks:
-            # 1. sensors: independent Poisson, ~1 Hz
-            grn_fire = rng.random(len(grn_i)) < p_grn
-            spikes.fill(0.0)
-            if grn_fire.any():
-                spikes[grn_i[grn_fire]] = 1.0
-            grn_spikes_win += int(grn_fire.sum())
+            last_fired = None
+            for _ in range(INNER_STEPS):
+                grn_fire = rng.random(len(grn_i)) < p_grn
+                src = pending
+                if grn_fire.any():
+                    gi = grn_i[grn_fire].astype(np.int32, copy=False)
+                    src = gi if src.size == 0 else np.unique(np.concatenate([src, gi]))
+                    grn_spikes_win += int(grn_fire.sum())
 
-            # 2. synaptic current from whoever spiked last tick (incl. GRNs)
-            g += (WSYN * GAIN) * (W @ spikes)
-            g *= np.float32(np.exp(-DT / TAU_S))
+                if src.size:
+                    dump_spikes(g, src)
+                g *= leak
 
-            # 3. leak + incoming current
-            active = refr <= 0
-            v[active] += np.float32(DT) * ((VREST - v[active]) / TAU_M) + g[active]
-            v[~active] = VRESET
-            refr = np.maximum(0.0, refr - DT)
+                active = refr <= 0
+                v[active] += np.float32(INNER_DT) * ((VREST - v[active]) / TAU_M) + g[active]
+                v[~active] = VRESET
+                refr = np.maximum(0.0, refr - INNER_DT)
 
-            # 4. threshold
-            fired = active & (v >= VTH)
-            if fired.any():
-                v[fired] = VRESET
-                g[fired] = 0.0
-                refr[fired] = TREF
-            net_spikes_win += int(fired.sum())
-            if len(mn9_i):
-                mn9_spikes_win += int(fired[mn9_i].sum())
-            if len(dand_i):
-                dand_spikes_win += int(fired[dand_i].sum())
-            if len(mn_i):
-                mn_spikes_win[mn_i] += fired[mn_i].astype(np.int32)
-                mn_g_abs_sum[mn_i] += np.abs(g[mn_i])
+                fired = active & (v >= VTH)
+                last_fired = fired
+                if fired.any():
+                    v[fired] = VRESET
+                    g[fired] = 0.0
+                    refr[fired] = TREF
+                    pending = np.flatnonzero(fired).astype(np.int32)
+                else:
+                    pending = np.empty(0, dtype=np.int32)
 
-            # GRNs that fired this tick are sources even if they missed VTH
-            # (they are clamped sensory spikes, like optogenetic drive)
-            spikes = fired.astype(np.float32)
-            if grn_fire.any():
-                spikes[grn_i[grn_fire]] = 1.0
+                net_spikes_win += int(fired.sum())
+                if len(mn9_i):
+                    mn9_spikes_win += int(fired[mn9_i].sum())
+                if len(dand_i):
+                    dand_spikes_win += int(fired[dand_i].sum())
+                if len(mn_i):
+                    mn_spikes_win[mn_i] += fired[mn_i].astype(np.int32)
+                    mn_g_abs_sum[mn_i] += np.abs(g[mn_i])
 
+            fired = last_fired if last_fired is not None else np.zeros(n, dtype=bool)
             v_sum += float(v.mean())
             g_abs_sum += float(np.abs(g).mean())
             g_max = max(g_max, float(np.abs(g).max()))
@@ -274,7 +294,7 @@ def main() -> None:
                     f"{top}"
                 )
                 print_top_motor(
-                    nodes, mn_i, mn_spikes_win, mn_g_abs_sum, v, PRINT_EVERY
+                    nodes, mn_i, mn_spikes_win, mn_g_abs_sum, v, inner_per_sec
                 )
                 grn_spikes_win = net_spikes_win = mn9_spikes_win = dand_spikes_win = 0
                 mn_spikes_win[:] = 0
