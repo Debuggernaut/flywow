@@ -19,6 +19,7 @@ from PIL import Image, ImageTk, ImageDraw
 GUIDANCE = Path("guidance.png")
 SHOW_FLY_EYE = True
 HEX_RINGS = 14
+FOV_PX = 480          # square canvas the hex disk fills
 MAX_VIEW_W = 960
 TARGET_MS = 30  # ~33 Hz UI tick; dxcam is newer-frame when it can
 
@@ -40,15 +41,27 @@ def axial_to_pixel(q, r, size):
 
 
 def build_hex_lookup(w: int, h: int, rings: int):
+    """Lattice sized so the hex disk fills the square canvas."""
     cells = hex_disk(rings)
     q, r = cells[:, 0].astype(float), cells[:, 1].astype(float)
     qx, qy = axial_to_pixel(q, r, 1.0)
     span = max(float(qx.max() - qx.min()), float(qy.max() - qy.min()), 1e-6)
-    size = 0.92 * min(w, h) / span
+    size = 0.98 * min(w, h) / span
     px, py = axial_to_pixel(q, r, size)
     px += w / 2.0
     py += h / 2.0
     return cells, px, py, size
+
+
+def fit_frame_to_hex_fov(im: Image.Image, canvas: int) -> Image.Image:
+    """Downscale the entire frame so it fits inside the hex field. Letterbox."""
+    scale = min(canvas / im.width, canvas / im.height)
+    nw = max(1, int(im.width * scale))
+    nh = max(1, int(im.height * scale))
+    small = im.resize((nw, nh), Image.Resampling.BILINEAR)
+    out = Image.new("RGB", (canvas, canvas), (0, 0, 0))
+    out.paste(small, ((canvas - nw) // 2, (canvas - nh) // 2))
+    return out
 
 
 def paint_hex(rgb: np.ndarray, px, py, size) -> Image.Image:
@@ -129,12 +142,12 @@ class Viewer:
             self.left.configure(image=self._photo_l)
 
             if SHOW_FLY_EYE:
-                small = fit(im, 480)
-                arr = np.asarray(small)
-                if self._hex is None or self._hex[-1] != small.size:
-                    cells, px, py, size = build_hex_lookup(small.width, small.height, HEX_RINGS)
-                    self._hex = (cells, px, py, size, small.size)
-                _, px, py, size, _ = self._hex
+                fov = fit_frame_to_hex_fov(im, FOV_PX)
+                arr = np.asarray(fov)
+                if self._hex is None or self._hex[-1] != fov.size:
+                    cells, px, py, size = build_hex_lookup(fov.width, fov.height, HEX_RINGS)
+                    self._hex = (cells, px, py, size, fov.size)
+                cells, px, py, size, _ = self._hex
                 eye = paint_hex(arr, px, py, size)
                 self._photo_r = ImageTk.PhotoImage(eye)
                 self.right.configure(image=self._photo_r)
