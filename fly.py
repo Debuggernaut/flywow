@@ -23,7 +23,7 @@ from flytrain.monitor import FlyMonitor
 
 DATA_DIR = Path(r"C:\Dev\flywow\data")
 GUIDANCE = Path(r"C:\Dev\flywow\guidance.png")
-#GUIDANCE = Path(r"C:\Dev\flywow\noguidance.png")
+GUIDANCE = Path(r"C:\Dev\flywow\noguidance.png")
 MIN_WEIGHT = 5
 
 TICK_HZ = 100
@@ -42,7 +42,7 @@ FOV_PX = 256
 FOV_SHIFT_X_FRAC = 0.18
 FOV_SHIFT_Y_FRAC = 0.0
 
-VISION_FPS = 5
+VISION_FPS = 1
 GRAB_EVERY = max(1, int(round(TICK_HZ / VISION_FPS)))  # 3 ticks at 100 Hz
 
 DRIVE_PR = False
@@ -380,14 +380,16 @@ def main() -> None:
     data = W.data
     print(f"W shape {W.shape}  nnz {W.nnz:,}  (CSC spike gather)")
 
-    def dump_spikes(g: np.ndarray, fired_idx: np.ndarray) -> None:
-        scale = np.float32(WSYN * GAIN)
-        for i in fired_idx:
-            a = int(indptr[i])
-            b = int(indptr[i + 1])
-            if a == b:
-                continue
-            g[indices[a:b]] += scale * data[a:b]
+    W_csr = W.tocsr()
+    scale = np.float32(WSYN * GAIN)
+    spike_vec = np.zeros(W.shape[0], dtype=np.float32)
+
+    def dump_spikes(g, fired_idx):
+        if fired_idx.size == 0:
+            return
+        spike_vec.fill(0)
+        spike_vec[fired_idx] = 1.0
+        g += scale * W_csr.dot(spike_vec)
 
     is_grn = sugar_water_mask(nodes)
     grn_i = np.flatnonzero(is_grn)
@@ -491,10 +493,13 @@ def main() -> None:
     rec_nspk = []
     rec_inner = 0
 
+    grabs = 0
+
     try:
         while n_ticks is None or tick < n_ticks:
             if eye is not None and (tick % GRAB_EVERY == 0):
                 eye.grab()
+                grabs = grabs + 1
                 vis_rate_mean += float(eye.feat.get("mean", 0.0)) * VISION_HZ_MAX
 
             last_fired = None
@@ -645,6 +650,7 @@ def main() -> None:
                     nodes, mn_i, mn_spikes_win, mn_g_abs_sum, v, inner_per_sec
                 )
                 print("         profile " + "  ".join(f"{k}={100*v/s:.0f}%" for k, v in acc.items()))
+                print(f"         grabs:{grabs}")
                 for k in acc:
                     acc[k] = 0.0
                 acc["print"] += time.perf_counter() - t
