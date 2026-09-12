@@ -12,6 +12,11 @@ WINDOW_INNER_STEPS = int(round(WINDOW_S / INNER_DT))  # 20
 
 VISION_HZ_MAX = 80.0
 FOV_PX = 256
+# Pan the hex sample window right on the 256² luma FOV.
+# 0.25 = 64 px. Hex mapping is left-packed when the lattice is taller than
+# wide, which was dropping the right side of the screen.
+FOV_SHIFT_X_FRAC = 0.18
+FOV_SHIFT_Y_FRAC = 0.0
 DRIVE_PR = False
 DRIVE_VPN = True
 DRIVE_GRN = False

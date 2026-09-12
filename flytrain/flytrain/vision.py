@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from .constants import FOV_PX, VISION_HZ_MAX
+from .constants import FOV_PX, FOV_SHIFT_X_FRAC, FOV_SHIFT_Y_FRAC, VISION_HZ_MAX
 
 
 def hex_pixel_xy(
@@ -26,8 +26,12 @@ def hex_pixel_xy(
     span = max(xmax - xmin, ymax - ymin, 1e-6)
     px = (x - xmin) / span * (canvas * 0.92) + canvas * 0.04
     py = (y - ymin) / span * (canvas * 0.92) + canvas * 0.04
+    px = px + canvas * float(FOV_SHIFT_X_FRAC)
+    py = py + canvas * float(FOV_SHIFT_Y_FRAC)
     px = np.where(np.isfinite(px), px, canvas / 2.0)
     py = np.where(np.isfinite(py), py, canvas / 2.0)
+    px = np.clip(px, 0.0, canvas - 1e-3)
+    py = np.clip(py, 0.0, canvas - 1e-3)
     return px, py
 
 
