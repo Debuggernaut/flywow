@@ -70,13 +70,9 @@ def _retina_pil(fov, px, py) -> Image.Image:
     gray = _luma2d(fov)
     if gray is None:
         gray = np.zeros((FOV_PX, FOV_PX), dtype=np.float32)
+    # Live path: the 256 luma already is what the OL samples.
+    # hex_retina_image() was rebuilding a 23k-dot splat every push (~9s in the profile).
     rgb = np.stack([gray, gray, gray], axis=-1)
-    if px is not None and py is not None and len(px) and len(py):
-        try:
-            img = hex_retina_image(rgb, np.asarray(px), np.asarray(py), radius=1)
-            return Image.fromarray(img)
-        except Exception:
-            pass
     return Image.fromarray(to_uint8_rgb(rgb))
 
 
