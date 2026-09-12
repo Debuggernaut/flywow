@@ -207,15 +207,17 @@ def hex_pixel_xy(h1: np.ndarray, h2: np.ndarray, canvas: int) -> tuple[np.ndarra
     return px, py
 
 
-def fit_frame_to_fov(im, canvas: int):
-    from PIL import Image
-
-    scale = min(canvas / im.width, canvas / im.height)
-    nw = max(1, int(im.width * scale))
-    nh = max(1, int(im.height * scale))
-    small = im.resize((nw, nh), Image.Resampling.BILINEAR)
-    out = Image.new("RGB", (canvas, canvas), (0, 0, 0))
-    out.paste(small, ((canvas - nw) // 2, (canvas - nh) // 2))
+def fit_frame_to_fov_np(rgb, canvas: int):
+    h, w = rgb.shape[:2]
+    scale = min(canvas / w, canvas / h)
+    nw = max(1, int(w * scale))
+    nh = max(1, int(h * scale))
+    import cv2
+    small = cv2.resize(rgb, (nw, nh), interpolation=cv2.INTER_AREA)
+    out = np.zeros((canvas, canvas, 3), dtype=np.uint8)
+    y0 = (canvas - nh) // 2
+    x0 = (canvas - nw) // 2
+    out[y0:y0 + nh, x0:x0 + nw] = small
     return out
 
 
@@ -231,7 +233,8 @@ class ScreenEye:
         self.overlay_fov = None
         if GUIDANCE.exists():
             raw = Image.open(GUIDANCE).convert("RGBA")
-            self.overlay_fov = fit_frame_to_fov(raw, FOV_PX).convert("RGBA")
+            ov = np.asarray(fit_frame_to_fov(raw, FOV_PX).convert("RGBA"), dtype=np.float32) / 255.0
+            self.overlay_fov = ov
             print(f"vision overlay {GUIDANCE} → {FOV_PX}px")
 
         self.pr_i = pr_i
@@ -274,13 +277,11 @@ class ScreenEye:
         frame = self.cam.grab(new_frame_only=True)
         if frame is None:
             return
-        im = self.Image.fromarray(frame)
-        fov_im = fit_frame_to_fov(im, FOV_PX)
+        fov_u8 = fit_frame_to_fov_np(frame, FOV_PX)
+        fov = fov_u8.astype(np.float32) * np.float32(1.0 / 255.0)
         if self.overlay_fov is not None:
-            fov_im = self.Image.alpha_composite(
-                fov_im.convert("RGBA"), self.overlay_fov
-            ).convert("RGB")
-        fov = np.asarray(fov_im, dtype=np.float32) * np.float32(1.0 / 255.0)
+            a = self.overlay_fov[:, :, 3:4]
+            fov = fov * (1.0 - a) + self.overlay_fov[:, :, :3] * a
         gray = fov.mean(axis=2)
         h, w = gray.shape
         left = float(gray[:, : w // 2].mean())
