@@ -70,18 +70,63 @@ def load_index(labels_dir: Path) -> pd.DataFrame:
     return df, labels_dir
 
 
+_ALT_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff", ".npy")
+
+
 def resolve_path(p: str, labels_dir: Path) -> Path:
     raw = Path(p)
-    if raw.is_file():
-        return raw
-    for cand in (
+    names = [raw.name]
+    stem = raw.stem
+    for ext in _ALT_EXTS:
+        names.append(stem + ext)
+    # VLC-style "foo.mp4_snapshot_00.02.412.png" vs ".jpg"
+    if raw.suffix.lower() in _ALT_EXTS:
+        for ext in _ALT_EXTS:
+            names.append(raw.name[: -len(raw.suffix)] + ext)
+
+    bases = [
+        raw,
         labels_dir / p,
-        labels_dir / "frames" / Path(p).name,
+        labels_dir / "frames" / raw.name,
         labels_dir.parent / p,
-    ):
-        if cand.is_file():
-            return cand
-    return labels_dir / p  # let the loader raise later
+        Path(p),
+    ]
+    tried = []
+    for base in bases:
+        candidates = [base]
+        parent = base.parent if base.suffix else base
+        for name in names:
+            candidates.append((base.parent if base.suffix else base) / name)
+            candidates.append(labels_dir / "frames" / name)
+        for cand in candidates:
+            tried.append(cand)
+            if cand.is_file():
+                return cand
+
+    # Last resort: unique stem match in labels/frames (ignores extension).
+    frames_dir = labels_dir / "frames"
+    if frames_dir.is_dir():
+        hits = [
+            q
+            for q in frames_dir.iterdir()
+            if q.is_file() and (q.stem == stem or q.name.startswith(stem))
+        ]
+        if len(hits) == 1:
+            return hits[0]
+        # snapshot names sometimes keep ".mp4_snapshot_..." as part of the stem
+        hits = [
+            q
+            for q in frames_dir.iterdir()
+            if q.is_file() and stem in q.name
+        ]
+        if len(hits) == 1:
+            return hits[0]
+
+    hint = "\n  ".join(str(t) for t in tried[:8])
+    raise FileNotFoundError(
+        f"No image for index path {p!r}. Looked like:\n  {hint}\n"
+        "Usually the CSV says .png and the file is .jpg (or the reverse)."
+    )
 
 
 def examples_from_index(df: pd.DataFrame, labels_dir: Path) -> list[Example]:
