@@ -22,8 +22,8 @@ sys.path.append(r"C:\Dev\flywow\flytrain")
 from flytrain.monitor import FlyMonitor
 
 DATA_DIR = Path(r"C:\Dev\flywow\data")
-#GUIDANCE = Path(r"C:\Dev\flywow\guidance.png")
-GUIDANCE = Path(r"C:\Dev\flywow\noguidance.png")
+GUIDANCE = Path(r"C:\Dev\flywow\guidance.png")
+#GUIDANCE = Path(r"C:\Dev\flywow\noguidance.png")
 MIN_WEIGHT = 5
 
 TICK_HZ = 100
@@ -211,18 +211,19 @@ def hex_pixel_xy(h1: np.ndarray, h2: np.ndarray, canvas: int) -> tuple[np.ndarra
 
 
 def fit_frame_to_fov_np(rgb, canvas: int):
+    rgb = np.asarray(rgb)
     h, w = rgb.shape[:2]
+    ch = 1 if rgb.ndim < 3 else rgb.shape[2]
     scale = min(canvas / w, canvas / h)
     nw = max(1, int(w * scale))
     nh = max(1, int(h * scale))
     import cv2
     small = cv2.resize(rgb, (nw, nh), interpolation=cv2.INTER_AREA)
-    out = np.zeros((canvas, canvas, 3), dtype=np.uint8)
+    out = np.zeros((canvas, canvas, ch), dtype=np.uint8)
     y0 = (canvas - nh) // 2
     x0 = (canvas - nw) // 2
     out[y0:y0 + nh, x0:x0 + nw] = small
     return out
-
 
 class ScreenEye:
     def __init__(self, nodes: pd.DataFrame, pr_i: np.ndarray, vpn_i: np.ndarray) -> None:
@@ -233,12 +234,12 @@ class ScreenEye:
         self.cam = dxcam.create(output_color="RGB")
         if self.cam is None:
             raise RuntimeError("dxcam.create failed")
+        
         self.overlay_fov = None
         if GUIDANCE.exists():
-            raw = Image.open(GUIDANCE).convert("RGBA")
-            ov = np.asarray(fit_frame_to_fov_np(raw, FOV_PX).convert("RGBA"), dtype=np.float32) / 255.0
-            self.overlay_fov = ov
-            print(f"vision overlay {GUIDANCE} → {FOV_PX}px")
+            raw = np.asarray(Image.open(GUIDANCE).convert("RGBA"))
+            self.overlay_fov = fit_frame_to_fov_np(raw, FOV_PX).astype(np.float32) / 255.0
+            print(f"vision overlay {GUIDANCE} → {FOV_PX}px  {self.overlay_fov.shape}")
 
         self.pr_i = pr_i
         self.vpn_i = vpn_i
@@ -286,6 +287,7 @@ class ScreenEye:
             a = self.overlay_fov[:, :, 3:4]
             fov = fov * (1.0 - a) + self.overlay_fov[:, :, :3] * a
         gray = fov.mean(axis=2)
+        self.gray = gray
         h, w = gray.shape
         left = float(gray[:, : w // 2].mean())
         right = float(gray[:, w // 2 :].mean())
