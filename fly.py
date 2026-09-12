@@ -119,19 +119,33 @@ def sugar_water_mask(nodes: pd.DataFrame) -> np.ndarray:
     return nodes["class"].eq("gustatory").to_numpy()
 
 
-def vpn_mask(nodes: pd.DataFrame) -> np.ndarray:
-    sc = nodes.superclass.eq("visual_projection")
-    t = nodes["type"].astype(str)
-    named = t.str.contains(
-        r"HS|HSE|HSN|HSS|VS|VSE|LC4|LPLC|LC10|LC11|LC12|LC13|LC15|LC16|LC17|LC18|LPTC",
-        case=False,
-        na=False,
+def hex_visual_mask(nodes: pd.DataFrame) -> np.ndarray:
+    """Cells that actually sit on the retinal lattice.
+
+    assignedOlHex* is filled for photoreceptors and columnar optic-lobe
+    neurons. Most VPNs do not have a hex, which is why VPNdrv went to 0.
+    """
+    h1 = pd.to_numeric(nodes.get("assignedOlHex1"), errors="coerce")
+    has_hex = h1.notna()
+    sc = nodes.superclass.astype(str)
+    visual_sc = sc.isin(
+        ["ol_sensory", "ol_intrinsic", "visual_projection", "visual_centrifugal"]
     )
-    m = sc & named
-    if int(m.sum()) >= 20:
-        return m.to_numpy()
-    print("named VPNs thin; using all visual_projection")
-    return sc.to_numpy()
+    m = has_hex & visual_sc
+    print(
+        "hex visual drive  "
+        + ", ".join(
+            f"{name}={int((has_hex & sc.eq(name)).sum())}"
+            for name in [
+                "ol_sensory",
+                "ol_intrinsic",
+                "visual_projection",
+                "visual_centrifugal",
+            ]
+        )
+        + f"  total={int(m.sum())}"
+    )
+    return m.to_numpy()
 
 
 def photoreceptor_mask(nodes: pd.DataFrame) -> np.ndarray:
@@ -277,25 +291,13 @@ class ScreenEye:
             self.pr_rate = ch * np.float32(VISION_HZ_MAX)
 
         if len(self.vpn_i):
+            # Unmodified FOV: each VPN with a hex samples that pixel only.
+            # No left/right/loom scalars — those made the legs move as a block.
             rate = np.zeros(len(self.vpn_i), dtype=np.float32)
-            if self.vpn_has_hex.any():
-                xi = np.clip(self.vpn_px.astype(int), 0, FOV_PX - 1)
-                yi = np.clip(self.vpn_py.astype(int), 0, FOV_PX - 1)
-                rate[self.vpn_has_hex] = gray[yi[self.vpn_has_hex], xi[self.vpn_has_hex]]
-            t = self.vpn_type
-            side = self.vpn_side
-            loom = np.array(["LC4" in x or "LPLC" in x for x in t])
-            obj = np.array(["LC10" in x or "LC11" in x or "LC12" in x for x in t])
-            hs = np.array(["HS" in x or x.startswith("VS") for x in t])
-            rate[loom] = mean
-            rate[obj] = mid
-            rate[hs & (side == "L")] = left
-            rate[hs & (side == "R")] = right
-            rate[hs & ~np.isin(side, ["L", "R"])] = mean
-            empty = ~self.vpn_has_hex & ~loom & ~obj & ~hs
-            rate[empty & (side == "L")] = left
-            rate[empty & (side == "R")] = right
-            rate[empty & ~np.isin(side, ["L", "R"])] = mean
+            xi = np.clip(self.vpn_px.astype(int), 0, FOV_PX - 1)
+            yi = np.clip(self.vpn_py.astype(int), 0, FOV_PX - 1)
+            rate[:] = gray[yi, xi]
+            rate[~self.vpn_has_hex] = 0.0
             self.vpn_rate = rate * np.float32(VISION_HZ_MAX)
 
 
@@ -364,7 +366,7 @@ def main() -> None:
     print(nodes.loc[is_grn, "type"].value_counts().head(10).to_string())
 
     pr_i = np.flatnonzero(photoreceptor_mask(nodes)) if DRIVE_PR else np.array([], dtype=int)
-    vpn_drv_i = np.flatnonzero(vpn_mask(nodes)) if DRIVE_VPN else np.array([], dtype=int)
+    vpn_drv_i = np.flatnonzero(hex_visual_mask(nodes)) if DRIVE_VPN else np.array([], dtype=int)
     eye = ScreenEye(nodes, pr_i, vpn_drv_i) if (DRIVE_PR or DRIVE_VPN) else None
 
     mn9_i = np.flatnonzero(nodes["type"].astype(str).eq("MN9"))
@@ -562,6 +564,7 @@ def main() -> None:
                     f"t={bio:6.1f}s  wall={wall:5.1f}s  "
                     f"feat L={feat.get('left',0):.2f} R={feat.get('right',0):.2f} "
                     f"C={feat.get('center',0):.2f}  "
+                    f"hex_rate={float(eye.vpn_rate.mean()) if eye is not None and len(eye.vpn_rate) else 0:.2f}  "
                     f"VPNdrv {vpn_drv_spikes_win:5d}/s ({vpn_drv_spikes_win/n_vpn:.1f} Hz/cell)  "
                     f"VPN {vpn_spikes_win:5d}/s  DN {dn_spikes_win:4d}/s  "
                     f"net {net_spikes_win:6d}/s ({net_hz*1000:.2f} mHz/cell)"
