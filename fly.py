@@ -13,6 +13,11 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 
+from pathlib import Path
+import sys
+sys.path.append(r"C:\Dev\flywow\flytrain")
+from flytrain.bake import apply_type_gains
+
 DATA_DIR = Path(r"C:\Dev\flywow\data")
 #GUIDANCE = Path(r"C:\Dev\flywow\guidance.png")
 GUIDANCE = Path(r"C:\Dev\flywow\noguidance.png")
@@ -352,6 +357,12 @@ def main() -> None:
     print(f"neurons {len(nodes):,}  edges>={MIN_WEIGHT} {len(edges):,}")
 
     W = build_W(nodes, edges).tocsc()
+
+    _gains = Path(r"C:\Dev\flywow\flytrain\train_out\gains_type.csv")
+    if _gains.exists():
+        W = apply_type_gains(W, nodes, _gains).tocsc()
+        print(f"loaded type-gains {_gains}")
+
     n = W.shape[0]
     indptr = W.indptr
     indices = W.indices

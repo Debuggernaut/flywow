@@ -188,6 +188,27 @@ def _split_idx(meta: dict) -> tuple[np.ndarray, np.ndarray]:
     return tr, va
 
 
+def pick_device(requested: str = "auto") -> str:
+    req = (requested or "auto").lower()
+    if req == "cpu":
+        return "cpu"
+    if req.startswith("cuda"):
+        if not torch.cuda.is_available():
+            print("CUDA requested but torch.cuda.is_available() is False; using CPU")
+            return "cpu"
+        return req
+    if torch.cuda.is_available():
+        try:
+            torch.zeros(1, device="cuda")
+            name = torch.cuda.get_device_name(0)
+            print(f"train device cuda:0 ({name})")
+            return "cuda"
+        except Exception as e:
+            print(f"CUDA present but unusable ({e}); using CPU")
+            return "cpu"
+    return "cpu"
+
+
 def train_tier_a(
     net: Connectome,
     cache: dict,
@@ -198,8 +219,9 @@ def train_tier_a(
     l2: float = 1e-4,
     pair: bool = False,
     use_tier_c: bool = False,
-    device: str = "cpu",
+    device: str = "auto",
 ) -> TrainResult:
+    device = pick_device(device)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     cuts = extract_standard_cuts(net)

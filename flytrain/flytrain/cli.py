@@ -108,6 +108,7 @@ def cmd_train(args) -> None:
         l2=args.l2,
         pair=args.pair,
         use_tier_c=args.tier_c,
+        device=args.device,
     )
     bake_folder(Path(args.out), net)
     print("gains →", Path(args.out) / "gains_type.csv")
@@ -224,6 +225,7 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--l2", type=float, default=1e-4)
     t.add_argument("--pair", action="store_true", help="θ[type_pre, type_post] instead of type_pre")
     t.add_argument("--tier-c", action="store_true", help="also train ol_intrinsic → DN")
+    t.add_argument("--device", default="auto", help="auto | cpu | cuda")
 
     sub.add_parser("bake", help="write README + sidecar", parents=[common])
     sub.add_parser("check-dark", help="Stage C idle/white regression", parents=[common])

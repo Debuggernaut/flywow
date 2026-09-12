@@ -11,6 +11,8 @@ import pandas as pd
 from .connectome import Connectome
 from .constants import (
     FOV_PX,
+    FOV_SHIFT_X_FRAC,
+    FOV_SHIFT_Y_FRAC,
     GAIN,
     INNER_DT,
     INNER_STEPS,
@@ -43,7 +45,7 @@ WINDOW_INNER_STEPS={win}
 TAU_M={tau_m}  TAU_S={tau_s}
 VREST={vrest}  VTH={vth}  VRESET={vreset}  TREF={tref}
 WSYN={wsyn}  GAIN={gain}  MIN_WEIGHT={min_w}
-FOV_PX={fov}  VISION_HZ_MAX={vis}
+FOV_PX={fov}  VISION_HZ_MAX={vis}  FOV_SHIFT_X_FRAC={fov_sx}  FOV_SHIFT_Y_FRAC={fov_sy}
 
 How fly.py should apply gains
 -----------------------------
@@ -53,7 +55,7 @@ After build_W(...).tocsc():
     apply_type_gains(W, nodes, "gains_type.csv")
 
 apply_type_gains multiplies W.data on matching (type_pre, type_post) edges
-in the three allowed cuts by exp(θ). Unlisted types keep gain 1.
+in the three allowed cuts by exp(theta). Unlisted types keep gain 1.
 
 Files
 -----
@@ -86,11 +88,13 @@ def write_readme(out_dir: Path, extra: str = "") -> None:
         min_w=MIN_WEIGHT,
         fov=FOV_PX,
         vis=VISION_HZ_MAX,
+        fov_sx=FOV_SHIFT_X_FRAC,
+        fov_sy=FOV_SHIFT_Y_FRAC,
     )
     if extra:
         text += "\n" + extra + "\n"
     Path(out_dir).mkdir(parents=True, exist_ok=True)
-    (Path(out_dir) / "README.txt").write_text(text)
+    (Path(out_dir) / "README.txt").write_text(text, encoding="utf-8")
 
 
 def apply_type_gains(
@@ -186,6 +190,8 @@ def bake_folder(out_dir: Path, net: Connectome | None = None) -> None:
             "GAIN": GAIN,
             "MIN_WEIGHT": MIN_WEIGHT,
             "FOV_PX": FOV_PX,
+            "FOV_SHIFT_X_FRAC": FOV_SHIFT_X_FRAC,
+            "FOV_SHIFT_Y_FRAC": FOV_SHIFT_Y_FRAC,
             "VISION_HZ_MAX": VISION_HZ_MAX,
         }
     }
