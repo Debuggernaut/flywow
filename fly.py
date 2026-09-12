@@ -228,10 +228,11 @@ class ScreenEye:
         self.cam = dxcam.create(output_color="RGB")
         if self.cam is None:
             raise RuntimeError("dxcam.create failed")
-        self.overlay = None
+        self.overlay_fov = None
         if GUIDANCE.exists():
-            self.overlay = Image.open(GUIDANCE).convert("RGBA")
-            print(f"vision overlay {GUIDANCE}")
+            raw = Image.open(GUIDANCE).convert("RGBA")
+            self.overlay_fov = fit_frame_to_fov(raw, FOV_PX).convert("RGBA")
+            print(f"vision overlay {GUIDANCE} → {FOV_PX}px")
 
         self.pr_i = pr_i
         self.vpn_i = vpn_i
@@ -270,17 +271,16 @@ class ScreenEye:
             self.vpn_has_hex = np.zeros(0, dtype=bool)
 
     def grab(self) -> None:
-        frame = self.cam.grab(new_frame_only=False)
+        frame = self.cam.grab(new_frame_only=True)
         if frame is None:
             return
-        im = self.Image.fromarray(frame).convert("RGBA")
-        if self.overlay is not None:
-            ov = self.overlay
-            if ov.size != im.size:
-                ov = ov.resize(im.size, self.Image.Resampling.NEAREST)
-                self.overlay = ov
-            im = self.Image.alpha_composite(im, ov)
-        fov = np.asarray(fit_frame_to_fov(im.convert("RGB"), FOV_PX), dtype=np.float32) / 255.0
+        im = self.Image.fromarray(frame)
+        fov_im = fit_frame_to_fov(im, FOV_PX)
+        if self.overlay_fov is not None:
+            fov_im = self.Image.alpha_composite(
+                fov_im.convert("RGBA"), self.overlay_fov
+            ).convert("RGB")
+        fov = np.asarray(fov_im, dtype=np.float32) * np.float32(1.0 / 255.0)
         gray = fov.mean(axis=2)
         h, w = gray.shape
         left = float(gray[:, : w // 2].mean())
@@ -440,6 +440,7 @@ def main() -> None:
         f"VPN={DRIVE_VPN} PR={DRIVE_PR} GRN={DRIVE_GRN}  Ctrl+C to stop"
     )
     t0 = time.perf_counter()
+    acc = {"grab": 0.0, "dump": 0.0, "lif": 0.0, "print": 0.0}
     tick = 0
     n_ticks = None if MAX_SECONDS is None else int(MAX_SECONDS * TICK_HZ)
 
@@ -505,8 +506,15 @@ def main() -> None:
                         src = vi if src.size == 0 else np.unique(np.concatenate([src, vi]))
                         vpn_drv_spikes_win += int(vpn_fire.sum())
 
+
+                t = time.perf_counter(); eye.grab(); acc["grab"] += time.perf_counter() - t
+                t = time.perf_counter()
+
                 if src.size:
                     dump_spikes(gsyn, src)
+                    
+                acc["dump"] += time.perf_counter() - t
+
                 gsyn *= leak
 
                 active = refr <= 0
@@ -523,6 +531,8 @@ def main() -> None:
                     pending = np.flatnonzero(fired).astype(np.int32)
                 else:
                     pending = np.empty(0, dtype=np.int32)
+
+                acc["lif"] += time.perf_counter() - t
 
                 net_spikes_win += int(fired.sum())
                 if len(mn9_i):
@@ -566,6 +576,7 @@ def main() -> None:
                 kc_v_win[:] = 0
                 rec_inner = 0
             if tick % PRINT_EVERY == 0:
+                s = sum(acc.values()) or 1e-9
                 wall = time.perf_counter() - t0
                 bio = tick / TICK_HZ
                 n_vpn = max(len(vpn_drv_i), 1)
@@ -578,6 +589,8 @@ def main() -> None:
                 if net_spikes_win:
                     names = pd.Series(types[fired]).value_counts().head(6)
                     top = "  " + ", ".join(f"{k}:{v}" for k, v in names.items())
+
+                t = time.perf_counter()
                 print(
                     f"t={bio:6.1f}s  wall={wall:5.1f}s  "
                     f"feat L={feat.get('left',0):.2f} R={feat.get('right',0):.2f} "
@@ -602,6 +615,10 @@ def main() -> None:
                 print_top_motor(
                     nodes, mn_i, mn_spikes_win, mn_g_abs_sum, v, inner_per_sec
                 )
+                print("         profile " + "  ".join(f"{k}={100*v/s:.0f}%" for k, v in acc.items()))
+                for k in acc:
+                    acc[k] = 0.0
+                acc["print"] += time.perf_counter() - t
                 grn_spikes_win = vis_spikes_win = net_spikes_win = 0
                 vpn_drv_spikes_win = 0
                 dn_spikes_win = 0
