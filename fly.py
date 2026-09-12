@@ -42,6 +42,9 @@ FOV_PX = 256
 FOV_SHIFT_X_FRAC = 0.18
 FOV_SHIFT_Y_FRAC = 0.0
 
+VISION_FPS = 5
+GRAB_EVERY = max(1, int(round(TICK_HZ / VISION_FPS)))  # 3 ticks at 100 Hz
+
 DRIVE_PR = False
 DRIVE_VPN = True
 DRIVE_GRN = False
@@ -435,6 +438,7 @@ def main() -> None:
         print(nodes.iloc[kc_i]["type"].value_counts().head(12).to_string())
 
 
+    #mon = None
     mon = FlyMonitor(icons_dir=Path(r"C:\Dev\flywow\labels\icons"))
     pool_ui = {k: 0 for k in pools}
 
@@ -489,7 +493,7 @@ def main() -> None:
 
     try:
         while n_ticks is None or tick < n_ticks:
-            if eye is not None:
+            if eye is not None and (tick % GRAB_EVERY == 0):
                 eye.grab()
                 vis_rate_mean += float(eye.feat.get("mean", 0.0)) * VISION_HZ_MAX
 
@@ -568,10 +572,11 @@ def main() -> None:
                     kc_v_win += v[kc_i]
                     rec_inner += 1
 
-                for pname, pmask in pools.items():
-                    nfire = int(fired[pmask].sum())
-                    pool_spikes_win[pname] += nfire
-                    pool_ui[pname] += nfire
+                if mon is not None:
+                    for pname, pmask in pools.items():
+                        nfire = int(fired[pmask].sum())
+                        pool_spikes_win[pname] += nfire
+                        pool_ui[pname] += nfire
 
             fired = last_fired if last_fired is not None else np.zeros(n, dtype=bool)
             v_sum += float(v.mean())
