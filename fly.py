@@ -18,6 +18,9 @@ import sys
 sys.path.append(r"C:\Dev\flywow\flytrain")
 from flytrain.bake import apply_type_gains
 
+sys.path.append(r"C:\Dev\flywow\flytrain")
+from flytrain.monitor import FlyMonitor
+
 DATA_DIR = Path(r"C:\Dev\flywow\data")
 #GUIDANCE = Path(r"C:\Dev\flywow\guidance.png")
 GUIDANCE = Path(r"C:\Dev\flywow\noguidance.png")
@@ -233,7 +236,7 @@ class ScreenEye:
         self.overlay_fov = None
         if GUIDANCE.exists():
             raw = Image.open(GUIDANCE).convert("RGBA")
-            ov = np.asarray(fit_frame_to_fov(raw, FOV_PX).convert("RGBA"), dtype=np.float32) / 255.0
+            ov = np.asarray(fit_frame_to_fov_np(raw, FOV_PX).convert("RGBA"), dtype=np.float32) / 255.0
             self.overlay_fov = ov
             print(f"vision overlay {GUIDANCE} → {FOV_PX}px")
 
@@ -312,6 +315,8 @@ class ScreenEye:
             rate[:] = gray[yi, xi]
             rate[~self.vpn_has_hex] = 0.0
             self.vpn_rate = rate * np.float32(VISION_HZ_MAX)
+
+        self.gray = gray
 
 
 def print_top_motor(
@@ -426,6 +431,10 @@ def main() -> None:
     )
     if len(kc_i):
         print(nodes.iloc[kc_i]["type"].value_counts().head(12).to_string())
+
+
+    mon = FlyMonitor(icons_dir=Path(r"C:\Dev\flywow\labels\icons"))
+    pool_ui = {k: 0 for k in pools}
 
     rng = np.random.default_rng(0)
     v = np.full(n, VREST, dtype=np.float32)
@@ -557,6 +566,11 @@ def main() -> None:
                     kc_v_win += v[kc_i]
                     rec_inner += 1
 
+                for pname, pmask in pools.items():
+                    nfire = int(fired[pmask].sum())
+                    pool_spikes_win[pname] += nfire
+                    pool_ui[pname] += nfire
+
             fired = last_fired if last_fired is not None else np.zeros(n, dtype=bool)
             v_sum += float(v.mean())
             g_abs_sum += float(np.abs(gsyn).mean())
@@ -564,6 +578,13 @@ def main() -> None:
             near_th_sum += int((v > (VTH - 2.0)).sum())
 
             tick += 1
+            if mon is not None and tick % 3 == 0:
+                dt = 3.0 / TICK_HZ
+                hz = {k: pool_ui[k] / max(int(pools[k].sum()), 1) / dt for k in pools}
+                mon.push(hz, fov=getattr(eye, "gray", None), px=getattr(eye, "vpn_px", None), py=getattr(eye, "vpn_py", None))
+                for k in pool_ui:
+                    pool_ui[k] = 0
+                
             if RECORD_KC and len(kc_i) and tick % rec_every == 0:
                 denom = max(rec_inner, 1)
                 rec_spikes.append(kc_win.copy())
