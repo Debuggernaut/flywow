@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MaleCNS 100 Hz LIF loop with live screen vision + sugar GRNs.
 
-Not a fly. A live cartoon of the published graph.
+Simulation of a fly's nervous system running in a virtual world, playing World of Warcraft
 """
 
 from __future__ import annotations
