@@ -152,7 +152,7 @@ def start_ue_legs_thread(state: dict | None = None) -> tuple[threading.Thread, t
 
 DATA_DIR = Path(r"C:\Dev\flywow\data")
 GUIDANCE = Path(r"C:\Dev\flywow\guidance.png")
-GUIDANCE = Path(r"C:\Dev\flywow\noguidance.png")
+#GUIDANCE = Path(r"C:\Dev\flywow\noguidance.png")
 MIN_WEIGHT = 5
 
 TICK_HZ = 100
@@ -176,7 +176,7 @@ GRAB_EVERY = max(1, int(round(TICK_HZ / VISION_FPS)))  # 3 ticks at 100 Hz
 
 DRIVE_PR = False
 DRIVE_VPN = True
-DRIVE_GRN = False
+DRIVE_GRN = True
 
 TAU_M = 0.020
 TAU_S = 0.005
@@ -779,7 +779,7 @@ def main() -> None:
 
                 t = time.perf_counter()
                 print(
-                    f"t={bio:6.1f}s  wall={wall:5.1f}s  "
+                    f"wall={wall:5.1f}s  "
                     f"feat L={feat.get('left',0):.2f} R={feat.get('right',0):.2f} "
                     f"C={feat.get('center',0):.2f}  "
                     f"hex_rate={float(eye.vpn_rate.mean()) if eye is not None and len(eye.vpn_rate) else 0:.2f}  "
