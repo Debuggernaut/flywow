@@ -17,9 +17,138 @@ from pathlib import Path
 import sys
 sys.path.append(r"C:\Dev\flywow\flytrain")
 from flytrain.bake import apply_type_gains
-
-sys.path.append(r"C:\Dev\flywow\flytrain")
 from flytrain.monitor import FlyMonitor
+
+#3D world
+import threading
+import requests
+
+UE = "http://127.0.0.1:30010"
+ANIM = (
+    "/Game/BigCompanyArchViz/Maps/UEDPIE_0_Maps_BigCompany"
+    ".Maps_BigCompany:PersistentLevel.SkeletalMeshActor_1"
+    ".SkeletalMeshComponent0.FlyAnimBP_C_0"
+)
+HEADERS = {"Content-Type": "application/json"}
+
+LEGS = ("LF", "RF", "LM", "RM", "LH", "RH")
+ON_HZ = 0.20
+POLL_HZ = 30.0
+STALE_S = 0.50
+# raised / rest, matching your LF test. Flip signs per leg if a side inverts.
+POSES = {
+    "LF": {"up": {"Pitch": 0.0, "Yaw": 0.0, "Roll": -25.0},
+           "down": {"Pitch": 0.0, "Yaw": 0.0, "Roll": 0.0}},
+    "RF": {"up": {"Pitch": 0.0, "Yaw": 0.0, "Roll": 25.0},
+           "down": {"Pitch": 0.0, "Yaw": 0.0, "Roll": 0.0}},
+    "LM": {"up": {"Pitch": 0.0, "Yaw": 0.0, "Roll": -25.0},
+           "down": {"Pitch": 0.0, "Yaw": 0.0, "Roll": 0.0}},
+    "RM": {"up": {"Pitch": 0.0, "Yaw": 0.0, "Roll": 25.0},
+           "down": {"Pitch": 0.0, "Yaw": 0.0, "Roll": 0.0}},
+    "LH": {"up": {"Pitch": 0.0, "Yaw": 0.0, "Roll": -25.0},
+           "down": {"Pitch": 0.0, "Yaw": 0.0, "Roll": 0.0}},
+    "RH": {"up": {"Pitch": 0.0, "Yaw": 0.0, "Roll": 25.0},
+           "down": {"Pitch": 0.0, "Yaw": 0.0, "Roll": 0.0}},
+}
+
+class UEDisconnected(Exception):
+    pass
+
+
+def _put(route: str, body: dict) -> dict:
+    try:
+        r = requests.put(f"{UE}{route}", json=body, headers=HEADERS, timeout=2)
+    except requests.RequestException as e:
+        raise UEDisconnected(str(e)) from e
+    if r.status_code >= 400:
+        raise UEDisconnected(f"{r.status_code} {r.text[:300]}")
+    return r.json() if r.text else {}
+
+
+def set_leg(name: str, rot: dict) -> None:
+    _put("/remote/object/property", {
+        "objectPath": ANIM,
+        "propertyName": name,
+        "access": "WRITE_ACCESS",
+        "generateTransaction": False,
+        "propertyValue": {name: rot},
+    })
+
+
+def ping() -> None:
+    try:
+        r = requests.get(f"{UE}/remote/info", headers=HEADERS, timeout=2)
+    except requests.RequestException as e:
+        raise UEDisconnected(str(e)) from e
+    if r.status_code >= 400:
+        raise UEDisconnected(f"info {r.status_code}")
+
+
+def run_ue_legs(state: dict | None = None, stop: threading.Event | None = None) -> None:
+    src = state if state is not None else POOL_STATE
+    if src is None:
+        raise RuntimeError("No POOL_STATE. Pass state= or import fly first.")
+
+    last_tick = None
+    last_on = {k: None for k in LEGS}
+    period = 1.0 / POLL_HZ
+
+    ping()
+    print("UE legs thread up. Ctrl+C to stop.", file=sys.stderr)
+
+    while stop is None or not stop.is_set():
+        t0 = time.perf_counter()
+        try:
+            tick = src.get("tick")
+            wall = float(src.get("wall") or 0.0)
+            hz = src.get("hz") or {}
+
+            if wall and (time.perf_counter() - wall) > STALE_S:
+                # sim paused/dead — park legs, keep polling
+                for k in LEGS:
+                    if last_on[k] is not False:
+                        set_leg(k, POSES[k]["down"])
+                        last_on[k] = False
+                last_tick = tick
+            elif tick != last_tick:
+                last_tick = tick
+                for k in LEGS:
+                    on = float(hz.get(k, 0.0)) >= ON_HZ
+                    if on is last_on[k]:
+                        continue
+                    set_leg(k, POSES[k]["up"] if on else POSES[k]["down"])
+                    last_on[k] = on
+        except UEDisconnected as e:
+            print(f"UE disconnected: {e}", file=sys.stderr)
+            break
+
+        dt = period - (time.perf_counter() - t0)
+        if dt > 0:
+            time.sleep(dt)
+
+    print("UE legs thread stopped.", file=sys.stderr)
+
+
+def start_ue_legs_thread(state: dict | None = None) -> tuple[threading.Thread, threading.Event]:
+    stop = threading.Event()
+    th = threading.Thread(
+        target=run_ue_legs,
+        kwargs={"state": state, "stop": stop},
+        name="ue-legs",
+        daemon=True,
+    )
+    th.start()
+    return th, stop
+
+
+# if __name__ == "__main__":
+#     # same process as fly.POOL_STATE
+#     try:
+#         run_ue_legs()
+#     except KeyboardInterrupt:
+#         print("\nctrl+c", file=sys.stderr)
+
+#end of 3d world code
 
 DATA_DIR = Path(r"C:\Dev\flywow\data")
 GUIDANCE = Path(r"C:\Dev\flywow\guidance.png")
@@ -31,7 +160,7 @@ INNER_STEPS = 2
 INNER_DT = 0.01 / INNER_STEPS
 DT = INNER_DT
 PRINT_EVERY = TICK_HZ
-MAX_SECONDS = 10
+MAX_SECONDS = 90
 RECORD_KC = False
 RECORD_HZ = 10  # 100 ms windows
 OUT_DIR = Path(r"C:\Dev\flywow\leg_record")
@@ -42,7 +171,7 @@ FOV_PX = 256
 FOV_SHIFT_X_FRAC = 0.18
 FOV_SHIFT_Y_FRAC = 0.0
 
-VISION_FPS = 1
+VISION_FPS = 30 #cinematic
 GRAB_EVERY = max(1, int(round(TICK_HZ / VISION_FPS)))  # 3 ticks at 100 Hz
 
 DRIVE_PR = False
@@ -68,6 +197,14 @@ FAST_NT = {
     "histamine": -1,
 }
 
+POOL_STATE = {
+    "t": 0.0,
+    "tick": 0,
+    "wall": 0.0,
+    "hz": {"LF": 0.0, "RF": 0.0, "LM": 0.0, "RM": 0.0, "LH": 0.0, "RH": 0.0},
+    "spikes": {"LF": 0, "RF": 0, "LM": 0, "RM": 0, "LH": 0, "RH": 0},
+    "n": {"LF": 0, "RF": 0, "LM": 0, "RM": 0, "LH": 0, "RH": 0},
+}
 
 def nt_sign(row: pd.Series) -> int:
     c = row["consensus_nt"]
@@ -428,6 +565,9 @@ def main() -> None:
     }
     for name, m in pools.items():
         print(f"  pool {name} {int(m.sum())}")
+    for k, m in pools.items():
+        POOL_STATE["n"][k] = int(m.sum())
+
     kc_i = np.flatnonzero(nodes["class"].astype(str).eq("Kenyon_Cell"))
     if len(kc_i) == 0:
         kc_i = np.flatnonzero(nodes["type"].astype(str).str.startswith("KC"))
@@ -494,6 +634,8 @@ def main() -> None:
     rec_inner = 0
 
     grabs = 0
+
+    start_ue_legs_thread(POOL_STATE)
 
     try:
         while n_ticks is None or tick < n_ticks:
@@ -596,6 +738,17 @@ def main() -> None:
                 mon.push(hz, fov=getattr(eye, "gray", None), px=getattr(eye, "vpn_px", None), py=getattr(eye, "vpn_py", None))
                 for k in pool_ui:
                     pool_ui[k] = 0
+
+            dt = 1.0 / TICK_HZ
+            POOL_STATE["t"] = tick / TICK_HZ
+            POOL_STATE["tick"] = tick
+            POOL_STATE["wall"] = time.perf_counter()
+            for k in pools:
+                n = max(POOL_STATE["n"][k], 1)
+                # spikes this outer tick = increment you already added to pool_ui / pool_spikes_win
+                # If you only have the 1s window counter, publish that instead (see spec).
+                POOL_STATE["spikes"][k] = int(pool_ui[k]) if "pool_ui" in dir() else int(pool_spikes_win[k])
+                POOL_STATE["hz"][k] = POOL_STATE["spikes"][k] / n / dt
                 
             if RECORD_KC and len(kc_i) and tick % rec_every == 0:
                 denom = max(rec_inner, 1)
@@ -743,3 +896,4 @@ def save_kc_record(
 
 if __name__ == "__main__":
     main()
+
