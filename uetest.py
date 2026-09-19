@@ -16,42 +16,27 @@ def put(route, body):
     return r.json() if r.text else {}
 
 
-print("describe")
-put("/remote/object/describe", {"objectPath": ANIM})
 
-print("read all")
-put("/remote/object/property", {
-    "objectPath": ANIM,
-    "access": "READ_ACCESS",
-})
-print("read LF")
-put("/remote/object/property", {
-    "objectPath": ANIM,
-    "propertyName": "LF",
-    "access": "READ_ACCESS",
-})
-
-# 1) full struct + transaction
+#Raise leg:
 put("/remote/object/property", {
     "objectPath": ANIM,
     "propertyName": "LF",
     "access": "WRITE_ACCESS",
     "generateTransaction": True,
     "propertyValue" : {
-        "LF": {"Pitch": 0, "Yaw" : 15.0, "Roll":0}
+        "LF": {"Pitch": 0, "Yaw" : 0, "Roll":-25}
     }
 })
 
-# requests.put(
-#     "http://127.0.0.1:30010/remote/preset/FlyLegs/property/LF",
-#     json={"PropertyValue": {"Pitch": 45.0, "Yaw": 0.0, "Roll": 0.0}},
-#     timeout=8,
-# )
-print("read LF")
+#todo: pause a hundred milliseconds or so
+
+#lower leg
 put("/remote/object/property", {
     "objectPath": ANIM,
     "propertyName": "LF",
-    "access": "READ_ACCESS",
+    "access": "WRITE_ACCESS",
+    "generateTransaction": True,
+    "propertyValue" : {
+        "LF": {"Pitch": 0, "Yaw" : 0, "Roll":0}
+    }
 })
-
-#print("LF after", r.text)

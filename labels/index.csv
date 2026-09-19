@@ -1,22 +1,55 @@
 path,LF,RF,LM,RM,LH,RH,clip_id,t,already_composited
-frames/2026-09-12 01-50-21.mp4_snapshot_00.02.412.png,0,1,1,0,1,1,shots,0,
-frames/2026-09-12 01-50-21.mp4_snapshot_00.04.409.png,1,0,1,0,0,0,shots,1,
-frames/2026-09-12 01-50-21.mp4_snapshot_00.08.195.png,0,0,1,0,0,0,shots,2,
-frames/2026-09-12 01-50-21.mp4_snapshot_00.11.455.png,0,0,1,1,0,0,shots,3,
-frames/2026-09-12 01-50-21.mp4_snapshot_00.19.646.png,0,0,1,0,0,0,shots,4,
-frames/2026-09-12 01-50-21.mp4_snapshot_00.31.014.png,0,0,1,0,0,0,shots,5,
-frames/2026-09-12 01-50-21.mp4_snapshot_00.35.281.png,0,0,1,0,0,0,shots,6,
-frames/2026-09-12 01-50-21.mp4_snapshot_00.38.233.png,0,1,0,0,0,0,shots,7,
-frames\2026-09-12 01-50-21.mp4_snapshot_00.02.412.jpg,0,0,0,1,0,0,2026-09-12 01-50-21.mp4_snapshot_00.02.412,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_00.04.409.jpg,0,0,0,0,1,0,2026-09-12 01-50-21.mp4_snapshot_00.04.409,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_00.08.195.jpg,0,1,0,0,0,0,2026-09-12 01-50-21.mp4_snapshot_00.08.195,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_00.11.455.jpg,0,1,0,0,0,0,2026-09-12 01-50-21.mp4_snapshot_00.11.455,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_00.19.646.jpg,0,1,0,0,0,0,2026-09-12 01-50-21.mp4_snapshot_00.19.646,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_00.31.014.jpg,0,0,1,0,0,0,2026-09-12 01-50-21.mp4_snapshot_00.31.014,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_00.35.281.jpg,0,1,0,0,0,0,2026-09-12 01-50-21.mp4_snapshot_00.35.281,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_00.38.233.jpg,0,1,0,0,0,0,2026-09-12 01-50-21.mp4_snapshot_00.38.233,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_00.42.936.jpg,0,0,0,0,1,0,2026-09-12 01-50-21.mp4_snapshot_00.42.936,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_00.46.873.jpg,0,0,0,0,1,0,2026-09-12 01-50-21.mp4_snapshot_00.46.873,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_00.54.203.jpg,1,0,0,0,0,0,2026-09-12 01-50-21.mp4_snapshot_00.54.203,0.0,0
-frames\2026-09-12 01-50-21.mp4_snapshot_01.24.330.jpg,0,0,0,0,1,0,2026-09-12 01-50-21.mp4_snapshot_01.24.330,0.0,0
-frames\2026-09-12 02-04-49.mp4_snapshot_00.05.923.jpg,0,0,0,1,0,0,2026-09-12 02-04-49.mp4_snapshot_00.05.923,0.0,0
+frames\WoWScrnShot_091426_034919.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034919,0.0,0
+frames\WoWScrnShot_091426_034927.jpg,0,0,0,0,1,0,WoWScrnShot_091426_034927,0.0,0
+frames\WoWScrnShot_091426_034929.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034929,0.0,0
+frames\WoWScrnShot_091426_034932.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034932,0.0,0
+frames\WoWScrnShot_091426_034933.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034933,0.0,0
+frames\WoWScrnShot_091426_034934.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034934,0.0,0
+frames\WoWScrnShot_091426_034937.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034937,0.0,0
+frames\WoWScrnShot_091426_034940.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034940,0.0,0
+frames\WoWScrnShot_091426_034944.jpg,0,0,0,0,1,0,WoWScrnShot_091426_034944,0.0,0
+frames\WoWScrnShot_091426_034946.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034946,0.0,0
+frames\WoWScrnShot_091426_034948.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034948,0.0,0
+frames\WoWScrnShot_091426_034949.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034949,0.0,0
+frames\WoWScrnShot_091426_034952.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034952,0.0,0
+frames\WoWScrnShot_091426_034956.jpg,0,1,0,0,0,0,WoWScrnShot_091426_034956,0.0,0
+frames\WoWScrnShot_091426_034958.jpg,0,0,1,0,0,0,WoWScrnShot_091426_034958,0.0,0
+frames\WoWScrnShot_091426_035004.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035004,0.0,0
+frames\WoWScrnShot_091426_035011.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035011,0.0,0
+frames\WoWScrnShot_091426_035020.jpg,0,1,0,0,0,0,WoWScrnShot_091426_035020,0.0,0
+frames\WoWScrnShot_091426_035026.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035026,0.0,0
+frames\WoWScrnShot_091426_035030.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035030,0.0,0
+frames\WoWScrnShot_091426_035032.jpg,1,0,1,0,1,0,WoWScrnShot_091426_035032,0.0,0
+frames\WoWScrnShot_091426_035033.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035033,0.0,0
+frames\WoWScrnShot_091426_035036.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035036,0.0,0
+frames\WoWScrnShot_091426_035037.jpg,0,0,1,0,0,0,WoWScrnShot_091426_035037,0.0,0
+frames\WoWScrnShot_091426_035038.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035038,0.0,0
+frames\WoWScrnShot_091426_035039.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035039,0.0,0
+frames\WoWScrnShot_091426_035049.jpg,0,0,0,0,1,0,WoWScrnShot_091426_035049,0.0,0
+frames\WoWScrnShot_091426_035050.jpg,0,0,0,0,1,0,WoWScrnShot_091426_035050,0.0,0
+frames\WoWScrnShot_091426_035051.jpg,0,0,0,0,1,0,WoWScrnShot_091426_035051,0.0,0
+frames\WoWScrnShot_091426_035056.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035056,0.0,0
+frames\WoWScrnShot_091426_035059.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035059,0.0,0
+frames\WoWScrnShot_091426_035101.jpg,0,1,0,0,0,0,WoWScrnShot_091426_035101,0.0,0
+frames\WoWScrnShot_091426_035103.jpg,0,1,0,0,0,0,WoWScrnShot_091426_035103,0.0,0
+frames\WoWScrnShot_091426_035104.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035104,0.0,0
+frames\WoWScrnShot_091426_035110.jpg,0,0,1,0,0,0,WoWScrnShot_091426_035110,0.0,0
+frames\WoWScrnShot_091426_035112.jpg,0,0,1,0,0,0,WoWScrnShot_091426_035112,0.0,0
+frames\WoWScrnShot_091426_035115.jpg,0,0,0,0,1,0,WoWScrnShot_091426_035115,0.0,0
+frames\WoWScrnShot_091426_035117.jpg,0,1,0,0,0,0,WoWScrnShot_091426_035117,0.0,0
+frames\WoWScrnShot_091426_035118.jpg,0,1,0,0,0,0,WoWScrnShot_091426_035118,0.0,0
+frames\WoWScrnShot_091426_035121.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035121,0.0,0
+frames\WoWScrnShot_091426_035122.jpg,0,0,1,0,0,0,WoWScrnShot_091426_035122,0.0,0
+frames\WoWScrnShot_091426_035124.jpg,0,0,1,0,1,0,WoWScrnShot_091426_035124,0.0,0
+frames\WoWScrnShot_091426_035125.jpg,0,1,0,0,0,0,WoWScrnShot_091426_035125,0.0,0
+frames\WoWScrnShot_091426_035126.jpg,0,1,0,0,0,0,WoWScrnShot_091426_035126,0.0,0
+frames\WoWScrnShot_091426_041102.jpg,1,1,0,1,0,0,WoWScrnShot_091426_041102,0.0,0
+frames\WoWScrnShot_091426_041107.jpg,1,1,0,1,0,0,WoWScrnShot_091426_041107,0.0,0
+frames\WoWScrnShot_091426_041112.jpg,1,1,0,1,0,0,WoWScrnShot_091426_041112,0.0,0
+frames\WoWScrnShot_091426_041119.jpg,1,0,0,0,0,0,WoWScrnShot_091426_041119,0.0,0
+frames\WoWScrnShot_091426_041120.jpg,0,0,1,0,0,0,WoWScrnShot_091426_041120,0.0,0
+frames\WoWScrnShot_091426_041122.jpg,0,0,1,0,0,0,WoWScrnShot_091426_041122,0.0,0
+frames\WoWScrnShot_091426_041124.jpg,0,0,1,0,1,0,WoWScrnShot_091426_041124,0.0,0
+frames\WoWScrnShot_091426_041125.jpg,0,0,1,0,0,0,WoWScrnShot_091426_041125,0.0,0
+frames\WoWScrnShot_091426_041127.jpg,0,1,0,0,0,0,WoWScrnShot_091426_041127,0.0,0
+frames\WoWScrnShot_091426_041132.jpg,0,1,0,0,0,0,WoWScrnShot_091426_041132,0.0,0

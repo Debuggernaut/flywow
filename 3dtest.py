@@ -2,34 +2,50 @@ import time
 from pathlib import Path
 
 import numpy as np
-import trimesh
 import viser
 import viser.transforms as tf
 
-OBJ = Path(__file__).with_name("dragon.obj")
-
-mesh = trimesh.load(OBJ, force="mesh")
-mesh.vertices -= mesh.centroid          # sit on the origin
-# mesh.apply_scale(0.05)                # uncomment if it is huge / tiny
-
-print(f"loaded {len(mesh.vertices)} verts, {len(mesh.faces)} faces")
+GLB_PATH = Path(__file__).with_name("dragon.glb")
+glb_bytes = GLB_PATH.read_bytes()
 
 server = viser.ViserServer()
-server.scene.add_grid("/grid", width=20.0, height=20.0, position=(0.0, 0.0, -1.0))
+server.scene.add_grid("/grid", width=20.0, height=20.0)
 
-handle = server.scene.add_mesh_simple(
-    "/dragon",
-    vertices=np.asarray(mesh.vertices),
-    faces=np.asarray(mesh.faces),
-    color=(200, 80, 40),
-    wxyz=tf.SO3.from_x_radians(np.pi / 2).wxyz,  # OBJ is often Z-up; viser is Y-up
+# Hero, full size, parked at the origin
+hero = server.scene.add_glb(
+    "/hero",
+    glb_data=glb_bytes,
+    scale=1.0,
+    position=(0.0, 0.0, 0.0),
+    wxyz=(1.0, 0.0, 0.0, 0.0),  # (w, x, y, z)
 )
+
+# Smaller copies — same bytes, different names / poses
+minis = []
+for i, x in enumerate((-3.0, 3.0, 0.0)):
+    h = server.scene.add_glb(
+        f"/mini/{i}",
+        glb_data=glb_bytes,
+        scale=0.35,
+        position=(x, 0.0, 2.0),
+    )
+    minis.append(h)
 
 print("open http://localhost:8080")
 
-# live spin — swap this loop for your Tk / sim updates later
 t0 = time.time()
 while True:
-    yaw = 0.4 * (time.time() - t0)
-    handle.wxyz = (np.cos(yaw / 2), 0.0, np.sin(yaw / 2), 0.0)  # rotate about Y
+    t = time.time() - t0
+
+    # park the hero, spin it slowly about Y
+    hero.position = (0.0, 0.0, 0.0)
+    hero.wxyz = tf.SO3.from_y_radians(0.3 * t).wxyz
+
+    # orbit / spin the minis
+    for i, h in enumerate(minis):
+        angle = t + i * (2 * np.pi / 3)
+        h.position = (3.0 * np.cos(angle), 0.0, 3.0 * np.sin(angle))
+        h.wxyz = tf.SO3.from_y_radians(angle).wxyz
+        # h.scale = 0.25 + 0.1 * np.sin(t)   # optional live scale
+
     time.sleep(1 / 30)

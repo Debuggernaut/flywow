@@ -123,7 +123,7 @@ class FlyMonitor:
         self.leg_hz: dict = {}
         for pool in FOOTER_ORDER:
             cell = tk.Frame(row, bg="#12141a")
-            cell.pack(side="left", expand=True, padx=3)
+            cell.pack(side="left", expand=True, padx=1)
             btn = tk.Button(
                 cell,
                 text=f"  {pool}",
